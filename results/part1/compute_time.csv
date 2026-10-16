@@ -1,0 +1,5 @@
+method,prep L=1 (s),prep L=2 (s),prep L=3 (s),eval L=1 (s),eval L=2 (s),eval L=3 (s)
+"(s,S) tuned",1.17,1.29,1.77,0.41,0.4,0.4
+DP optimal,0.01,0.11,1.7,0.31,0.31,0.31
+base-stock naive,0.0,0.0,0.0,0.43,0.41,0.4
+base-stock tuned,1.0,1.04,1.11,0.39,0.41,0.4

@@ -1,0 +1,11 @@
+# Exact versions used to produce the results in results/ (Python 3.14.3, Windows).
+numpy==2.5.4
+scipy==1.18.1
+pandas==3.0.6
+matplotlib==3.11.2
+gymnasium==1.4.0
+
+# Running the tests and executing the notebook from the command line
+pytest==9.1.1
+ipykernel==7.4.0
+nbconvert==7.17.2
