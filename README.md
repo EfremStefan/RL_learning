@@ -4,8 +4,8 @@ A shop decides every day how much to order from its supplier. Demand is random (
 
 | Part | Content | Status |
 |---|---|---|
-| 1 | Gymnasium environment, value iteration (exact optimum, L = 1 to 3), tuned base-stock and (s, S) | done: [`notebooks/01_part1_env_dp_rules.ipynb`](notebooks/01_part1_env_dp_rules.ipynb) |
-| 2 | Tabular Q-learning vs DP vs rules, learning curves, alpha/epsilon sensitivity | planned |
+| 1 | Gymnasium environment, value iteration (exact optimum, L = 1 to 3), tuned base-stock and (s, S) | done: §§0–8 in [`notebooks/01_part1_env_dp_rules.ipynb`](notebooks/01_part1_env_dp_rules.ipynb) |
+| 2 | Tabular Q-learning vs DP vs rules, learning curves, α/ε sensitivity, compute table | done: §§9–15 in the **same** notebook; outputs in [`results/part2/`](results/part2/) |
 | 3 | DQN or PPO, delay sweep L = 1 to 6, rliable IQM statistics | planned |
 
 ## The MDP
@@ -23,18 +23,13 @@ Default parameters (`src/inventory_rl/config.py`): `lam=4, X_max=20, A_max=10, h
 
 ```
 src/inventory_rl/
-  config.py      parameters (InventoryConfig) and the L-sweep presets
-  dynamics.py    one day of the system; the single source of truth used by everything below
-  env.py         InventoryEnv, a Gymnasium environment (also registered as "Inventory-v0")
-  model.py       exact transition model for DP: state encoding, truncated Poisson, (S, A, D) arrays
-  dp.py          value iteration and exact policy evaluation
-  policies.py    base-stock, (s, S) and tabular (DP) policies, vectorized
-  tuning.py      grid search of rule parameters on tuning seeds
-  evaluate.py    vectorized simulator with common random numbers, mean / 95% CI, paired gaps
-  plotting.py    figures
-notebooks/01_part1_env_dp_rules.ipynb   Part 1 narrative, results and figures
-tests/                                  env vs model vs simulator consistency, DP optimality
-results/part1/                          CSV tables and PNG figures written by the notebook
+  config.py, dynamics.py, env.py, model.py, dp.py
+  policies.py, tuning.py, evaluate.py, plotting.py
+  agents/q_learning.py     Part 2 tabular Q-learning
+notebooks/01_part1_env_dp_rules.ipynb   Parts 1–2 narrative (run Part 1 cells before Part 2)
+tests/                     env/model/DP/Q-learning tests
+results/part1/             Part 1 tables and figures
+results/part2/             Part 2 curves, comparisons, sensitivity, compute_time.csv
 ```
 
 ## Running it
@@ -45,44 +40,55 @@ results/part1/                          CSV tables and PNG figures written by th
 python -m venv .venv
 .venv\Scripts\activate            # Windows; on Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
-pytest                            # 27 tests, a few seconds
+pytest                            # 32 tests
 jupyter nbconvert --to notebook --execute --inplace notebooks/01_part1_env_dp_rules.ipynb
 ```
 
-The last command regenerates every table and figure in `results/part1/` (about one minute). You can also open the notebook in Jupyter or VS Code and run all cells.
+Full Parts 1–2 execution takes on the order of **5–10 minutes** on a laptop CPU (Part 1 ~1 min; Part 2 training + sensitivity dominate).
 
 ### Google Colab
 
 1. Push this folder to a GitHub repository.
-2. Open the notebook in Colab (File > Open notebook > GitHub).
-3. In the first code cell, set `REPO_URL` to your repository, then run all cells.
+2. Open `notebooks/01_part1_env_dp_rules.ipynb` in Colab.
+3. Set `REPO_URL` in the first code cell, then **Run all**.
+4. Part 2 cells require Part 1 cells to have run in the same session (`vi_results`, `summary`, …).
 
-The setup cell clones the repository, installs `gymnasium==1.4.0` and adds `src/` to the import path. Colab's preinstalled numpy, scipy, pandas and matplotlib are used as they are, and the hardware/version cell prints exactly which versions ran. Results do not depend on library versions beyond floating-point noise, because all randomness comes from `numpy.random.default_rng(seed)`.
+## Experimental protocol
 
-## Experimental protocol (Part 1)
+### Part 1
+- **Seeds:** rules tuned on seeds 1000–1004; final eval on seeds 0–9 (20,000 days, 1,000 burn-in).
+- **Equal budget / CRN:** same demand sequence per eval seed for every method.
+- **Sensitivity:** base-stock S; lost-sales penalty p ∈ {5, 10, 20}.
 
-- **Seeds:** rules are tuned on seeds 1000 to 1004 (10,000 days each). Every method is evaluated on seeds 0 to 9 (20,000 days each, after a 1,000-day burn-in).
-- **Equal budget:** every method sees the same demand sequence per seed (common random numbers). Gaps are computed per seed and averaged (paired), with 95% t-intervals.
-- **Greedy evaluation:** policies are evaluated without exploration on seeds never used for tuning.
-- **Sensitivity:** cost against the base-stock level S, and gaps against the lost-sales penalty p in {5, 10, 20} for L = 1 and 2.
-- **Learning curves and rliable IQM** start in Part 2 and Part 3, when methods learn.
+### Part 2
+- **Train seeds:** 0–9; **200,000** steps each; α=0.1, ε=0.1, γ=0.99.
+- **Learning curves:** greedy checkpoint every 10,000 steps (2,000-day probe); mean ± 95% CI.
+- **Final eval:** average Q-tables across train seeds → greedy `TabularPolicy` → same `EVAL_SEEDS` as Part 1.
+- **Sample efficiency:** first checkpoint within 5% of DP cost (not reached under the default budget).
+- **Sensitivity:** α ∈ {0.05, 0.1, 0.3} and ε ∈ {0.05, 0.1, 0.2} at L=1 and L=2 (one factor at a time, 5 seeds).
+- **Compute (§15 only):** `results/part2/compute_time.csv` — does **not** modify Part 1 §7.
 
 ## Figures and tables
 
-All are produced by `notebooks/01_part1_env_dp_rules.ipynb` (run all cells, or the `nbconvert` command above).
-
-| File in `results/part1/` | Notebook section |
+### Part 1 → `results/part1/`
+| File | Section |
 |---|---|
-| `state_space_growth.csv` | 2. Environment, state-space growth |
-| `dp_timing.csv`, `dp_convergence_and_policies.png` | 3. Value iteration |
-| `tuned_rules.csv`, `base_stock_tuning_grid.csv`, `ss_tuning_grid.csv`, `rule_tuning.png` | 4. Classic rules |
-| `final_evaluation.csv`, `per_seed_costs.csv`, `final_evaluation.png` | 5. Final evaluation |
-| `sensitivity_p.csv`, `sensitivity_p.png` | 6. Sensitivity to p |
-| `compute_time.csv` | 7. Compute cost |
+| `state_space_growth.csv` | §2 |
+| `dp_timing.csv`, `dp_convergence_and_policies.png` | §3 |
+| `tuned_rules.csv`, `rule_tuning.png`, … | §4 |
+| `final_evaluation.csv`, `final_evaluation.png` | §5 |
+| `sensitivity_p.csv`, `sensitivity_p.png` | §6 |
+| `compute_time.csv` | §7 |
+
+### Part 2 → `results/part2/`
+| File | Section |
+|---|---|
+| `learning_curves.npz`, `learning_curves.png` | §10–11 |
+| `final_evaluation_qlearning.csv`, `comparison_with_baselines.csv`, `final_comparison.png` | §12 |
+| `sensitivity_alpha_epsilon.csv`, `sensitivity_alpha_epsilon.png` | §13 |
+| `compute_time.csv` | §15 |
 
 ## Part 1 results
-
-Average cost per day (10 seeds, 95% CI) and gap to the DP optimum (paired, per seed):
 
 | L | DP optimal | (s, S) tuned | base-stock tuned | base-stock naive |
 |---|---|---|---|---|
@@ -90,16 +96,23 @@ Average cost per day (10 seeds, 95% CI) and gap to the DP optimum (paired, per s
 | 2 | 13.35 +/- 0.04 | 13.52 (+1.31% +/- 0.14) | 14.58 (+9.2%) | 16.19 (+21.3%) |
 | 3 | 13.70 +/- 0.04 | 13.96 (+1.87% +/- 0.15) | 15.06 (+10.0%) | 16.12 (+17.7%) |
 
-- With a 1-day delay the tuned (s, S) rule is optimal within noise; the DP policy itself has an (s, S) shape.
-- The (s, S) gap grows with the delay, which is where a learned policy may pay off.
-- Base-stock pays the fixed order cost almost every day, so it is about 9 to 10% worse.
-- Exact DP takes up to 2 s for L = 3. The model needs about 80 MB at L = 4, 0.85 GB at L = 5 and 9 GB at L = 6.
+## Part 2 results (default α=0.1, ε=0.1, 200k steps)
+
+| L | Q-learning cost/day | gap vs DP | gap vs tuned (s,S) | seeds within 5% of DP |
+|---|---|---|---|---|
+| 1 | 13.70 +/- 0.03 | +7.3% | +7.2% | 0/10 |
+| 2 | 18.74 +/- 0.06 | +40.4% | +38.6% | 0/10 |
+| 3 | 20.97 +/- 0.09 | +53.1% | +50.3% | 0/10 |
+
+- Under this budget, tabular Q-learning does **not** beat tuned (s,S); gaps grow with L.
+- Sensitivity: at L=1, **α=0.3** reduced the gap to about **+2.8%**; some L=2 settings were unstable — hyperparameters matter.
+- Train time ~3.6–5.0 s per seed; final eval ~0.35 s (see `results/part2/compute_time.csv`).
 
 **Hardware for the reported timings:** AMD64 Family 26 Model 68 (AMD), 16 logical cores, Windows 11, Python 3.14.3, numpy 2.5.4, scipy 1.18.1, pandas 3.0.6, matplotlib 3.11.2, gymnasium 1.4.0.
 
 ## References
 
-- R. S. Sutton and A. G. Barto, *Reinforcement Learning: An Introduction*, 2nd ed., ch. 3 to 4.
+- R. S. Sutton and A. G. Barto, *Reinforcement Learning: An Introduction*, 2nd ed., ch. 3 to 6.
 - J. Gijsbrechts, R. N. Boute, J. A. Van Mieghem, D. J. Zhang (2022). Can Deep Reinforcement Learning Improve Inventory Management? *Manufacturing & Service Operations Management* 24(3).
 - C. D. Hubbs et al. (2020). OR-Gym: A Reinforcement Learning Library for Operations Research Problems. arXiv:2008.06319.
 - P. Henderson et al. (2018). Deep Reinforcement Learning that Matters. AAAI.

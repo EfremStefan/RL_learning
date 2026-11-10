@@ -1,0 +1,4 @@
+L,train_seconds_mean (10 seeds),final_eval_seconds,steps_to_5pct_of_DP (mean over seeds that hit),fraction_of_seeds_hitting_target
+1,3.582750570005737,0.3666306000086479,,0.0
+2,4.568269139999757,0.36956930000451393,,0.0
+3,4.961125470005209,0.35290399999939837,,0.0

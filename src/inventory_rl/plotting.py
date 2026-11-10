@@ -11,6 +11,7 @@ METHOD_COLORS = {
     "(s,S) tuned": "tab:orange",
     "base-stock tuned": "tab:green",
     "base-stock naive": "tab:red",
+    "Q-learning": "tab:purple",
 }
 
 
@@ -118,5 +119,58 @@ def plot_sensitivity(table: pd.DataFrame, x: str, ax=None):
     ax.axhline(0, color="k", lw=0.8)
     ax.set_xlabel(x)
     ax.set_ylabel("gap to DP optimum (%)")
+    ax.legend()
+    return ax
+
+
+def plot_learning_curves(curves_by_L: dict, dp_costs: dict, rule_costs: dict | None = None, ax=None):
+    """Mean checkpoint cost vs training steps with 95% CI across seeds.
+
+    `curves_by_L[L]` is an array of shape (n_seeds, n_checkpoints) of eval costs.
+    All seeds for a given L share the same checkpoint step grid in `steps_by_L[L]`
+    if provided as a second value; otherwise pass `{L: (steps, costs)}`.
+    """
+    ax = ax or plt.subplots(figsize=(7, 4.5))[1]
+    from scipy import stats
+
+    for L, payload in curves_by_L.items():
+        if isinstance(payload, tuple):
+            steps, costs = payload
+        else:
+            raise TypeError("curves_by_L values must be (steps, costs) tuples")
+        steps = np.asarray(steps)
+        costs = np.asarray(costs, dtype=float)
+        mean = costs.mean(axis=0)
+        if costs.shape[0] > 1:
+            half = stats.t.ppf(0.975, costs.shape[0] - 1) * costs.std(axis=0, ddof=1) / np.sqrt(costs.shape[0])
+        else:
+            half = np.zeros_like(mean)
+        line, = ax.plot(steps, mean, label=f"Q-learning L={L}")
+        ax.fill_between(steps, mean - half, mean + half, alpha=0.2, color=line.get_color())
+        ax.axhline(dp_costs[L], color=line.get_color(), ls=":", lw=1.2, alpha=0.9)
+        if rule_costs and L in rule_costs:
+            ax.axhline(rule_costs[L], color=line.get_color(), ls="--", lw=1.0, alpha=0.7)
+    ax.set_xlabel("environment steps")
+    ax.set_ylabel("average cost per day (greedy eval)")
+    ax.set_title("Q-learning curves (mean ± 95% CI); dotted = DP, dashed = tuned (s,S)")
+    ax.legend(fontsize=8)
+    return ax
+
+
+def plot_hyperparam_sensitivity(table: pd.DataFrame, x: str, ax=None, ylabel: str = "gap to DP optimum (%)"):
+    """Final gap (or cost) against a training hyperparameter."""
+    ax = ax or plt.subplots(figsize=(6, 4))[1]
+    y = "gap_dp_pct" if "gap_dp_pct" in table.columns else "cost"
+    yerr = "gap_dp_ci" if "gap_dp_ci" in table.columns else None
+    for L, rows in table.groupby("L", sort=True):
+        rows = rows.sort_values(x)
+        if yerr and yerr in rows.columns:
+            ax.errorbar(rows[x], rows[y], yerr=rows[yerr], marker="o", capsize=3, label=f"L = {L}")
+        else:
+            ax.plot(rows[x], rows[y], marker="o", label=f"L = {L}")
+    if y == "gap_dp_pct":
+        ax.axhline(0, color="k", lw=0.8)
+    ax.set_xlabel(x)
+    ax.set_ylabel(ylabel if y == "gap_dp_pct" else "average cost per day")
     ax.legend()
     return ax
