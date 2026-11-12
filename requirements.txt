@@ -9,3 +9,12 @@ gymnasium==1.4.0
 pytest==9.1.1
 ipykernel==7.4.0
 nbconvert==7.17.2
+
+# Part 3 (DQN). Then, because rliable 1.2 requires arch<8 and that pin has no
+# Windows wheel for Python 3.14, install rliable itself without dependencies:
+#   pip install --no-deps rliable==1.2.0
+torch==2.15.0
+stable-baselines3==2.9.2
+arch==8.0.0
+seaborn==0.13.2
+absl-py==2.5.1

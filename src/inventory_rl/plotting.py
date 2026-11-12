@@ -12,6 +12,7 @@ METHOD_COLORS = {
     "base-stock tuned": "tab:green",
     "base-stock naive": "tab:red",
     "Q-learning": "tab:purple",
+    "DQN": "tab:brown",
 }
 
 
@@ -123,16 +124,23 @@ def plot_sensitivity(table: pd.DataFrame, x: str, ax=None):
     return ax
 
 
-def plot_learning_curves(curves_by_L: dict, dp_costs: dict, rule_costs: dict | None = None, ax=None):
+def plot_learning_curves(
+    curves_by_L: dict,
+    dp_costs: dict | None = None,
+    rule_costs: dict | None = None,
+    ax=None,
+    method: str = "Q-learning",
+):
     """Mean checkpoint cost vs training steps with 95% CI across seeds.
 
-    `curves_by_L[L]` is an array of shape (n_seeds, n_checkpoints) of eval costs.
-    All seeds for a given L share the same checkpoint step grid in `steps_by_L[L]`
-    if provided as a second value; otherwise pass `{L: (steps, costs)}`.
+    `curves_by_L[L]` is `(steps, costs)` with `costs` shaped `(n_seeds, n_checkpoints)`.
+    Dotted lines are DP costs (only for lead times present in `dp_costs`). Dashed
+    lines are the tuned (s, S) costs.
     """
     ax = ax or plt.subplots(figsize=(7, 4.5))[1]
     from scipy import stats
 
+    dp_costs = dp_costs or {}
     for L, payload in curves_by_L.items():
         if isinstance(payload, tuple):
             steps, costs = payload
@@ -145,14 +153,15 @@ def plot_learning_curves(curves_by_L: dict, dp_costs: dict, rule_costs: dict | N
             half = stats.t.ppf(0.975, costs.shape[0] - 1) * costs.std(axis=0, ddof=1) / np.sqrt(costs.shape[0])
         else:
             half = np.zeros_like(mean)
-        line, = ax.plot(steps, mean, label=f"Q-learning L={L}")
+        line, = ax.plot(steps, mean, label=f"{method} L={L}")
         ax.fill_between(steps, mean - half, mean + half, alpha=0.2, color=line.get_color())
-        ax.axhline(dp_costs[L], color=line.get_color(), ls=":", lw=1.2, alpha=0.9)
-        if rule_costs and L in rule_costs:
+        if L in dp_costs and np.isfinite(dp_costs[L]):
+            ax.axhline(dp_costs[L], color=line.get_color(), ls=":", lw=1.2, alpha=0.9)
+        if rule_costs and L in rule_costs and np.isfinite(rule_costs[L]):
             ax.axhline(rule_costs[L], color=line.get_color(), ls="--", lw=1.0, alpha=0.7)
     ax.set_xlabel("environment steps")
     ax.set_ylabel("average cost per day (greedy eval)")
-    ax.set_title("Q-learning curves (mean ± 95% CI); dotted = DP, dashed = tuned (s,S)")
+    ax.set_title(f"{method} curves (mean ± 95% CI); dotted = DP, dashed = tuned (s,S)")
     ax.legend(fontsize=8)
     return ax
 

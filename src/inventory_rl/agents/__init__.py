@@ -1,4 +1,4 @@
-"""Learning agents for Part 2+."""
+"""Learning agents for Parts 2 and 3."""
 
 from .q_learning import QLearningAgent, TrainResult, train_q_learning
 
